@@ -3,21 +3,18 @@ using PlatformService.Dtos;
 using PlatformService.Models;
 using Microsoft.AspNetCore.Mvc;
 using PlatformService.Repositories;
+using PlatformService.SyncDataServices.Http;
 
 namespace PlatformService.Controllers
 {
     [Route("api/[controller]/")]
     [ApiController]
-    public class PlatformsController : ControllerBase
+    public class PlatformsController(IPlatformRepository platformRepository, 
+        IMapper mapper, ICommandDataClient dataClient) : ControllerBase
     {
-        private readonly IMapper _mapper;
-        private readonly IPlatformRepository _platformRepository;
-
-        public PlatformsController(IPlatformRepository platformRepository, IMapper mapper)
-        {
-            this._mapper = mapper;
-            this._platformRepository = platformRepository;
-        }
+        private readonly IMapper _mapper = mapper;
+        private readonly ICommandDataClient _dataClient = dataClient;
+        private readonly IPlatformRepository _platformRepository = platformRepository;
 
         [HttpGet]
         public async Task<ActionResult<IEnumerable<PlatformReadDto>>> GetPlatforms()
@@ -53,15 +50,24 @@ namespace PlatformService.Controllers
         }
 
         [HttpPost]
-        public async Task<ActionResult<PlatformReadDto>> AddPlatform([FromBody] PlatformCreateDto dto)
+        public async Task<ActionResult<PlatformReadDto>> CreatePlatform([FromBody] PlatformCreateDto dto)
         {
             try
             {
-                var platform = _mapper.Map<Platform>(dto);
+                var platform = _mapper.Map<Platform>(dto);  
 
                 await _platformRepository.AddPlatform(platform);
 
                 var res = _mapper.Map<PlatformReadDto>(platform);
+
+                try
+                {
+                    await _dataClient.SendPlatformToCommand(res);
+                }
+                catch (Exception e)
+                {
+                    Console.WriteLine($"--> Could not send synchronously: {e.Message}");
+                }
 
                 return CreatedAtRoute(nameof(GetPlatformById), new { Id = res.Id }, res);
             }

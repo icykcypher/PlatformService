@@ -2,6 +2,7 @@ using PlatformService.Data;
 using Microsoft.EntityFrameworkCore;
 using PlatformService.Repositories;
 using PlatformService.MappingProfiles;
+using PlatformService.SyncDataServices.Http;
 
 namespace PlatformService
 {
@@ -17,9 +18,12 @@ namespace PlatformService
 
 
             builder.Services.AddScoped<IPlatformRepository, PlatformRepository>();
+            builder.Services.AddHttpClient<ICommandDataClient, HttpCommandDataClient>();
             builder.Services.AddDbContext<AppDbContext>(opt => opt.UseInMemoryDatabase("InMem"));
             builder.Services.AddAutoMapper(typeof(PlatformProfile));
             var app = builder.Build();
+
+            Console.WriteLine($"CommandService endpoint: {builder.Configuration["CommandService"]}");
 
             if (app.Environment.IsDevelopment())
             {
