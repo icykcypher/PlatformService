@@ -27,5 +27,5 @@ spec:
     ports:
         - name: commandsservice
           protocol: TCP
-          port: 80
-          targetPort: 5225
+          port: 54321
+          targetPort: 8080

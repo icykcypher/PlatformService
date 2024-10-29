@@ -27,5 +27,5 @@ spec:
     ports:
         - name: platformservice
           protocol: TCP
-          port: 80
-          targetPort: 80
+          port: 32275
+          targetPort: 8080
