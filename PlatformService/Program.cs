@@ -1,8 +1,10 @@
 using PlatformService.Data;
-using Microsoft.EntityFrameworkCore;
 using PlatformService.Repositories;
+using Microsoft.EntityFrameworkCore;
 using PlatformService.MappingProfiles;
+using PlatformService.AsyncDataServices;
 using PlatformService.SyncDataServices.Http;
+using PlatformService.SyncDataServices.Grpc;
 
 namespace PlatformService
 {
@@ -16,10 +18,24 @@ namespace PlatformService
             builder.Services.AddEndpointsApiExplorer();
             builder.Services.AddSwaggerGen();
 
-
             builder.Services.AddScoped<IPlatformRepository, PlatformRepository>();
             builder.Services.AddHttpClient<ICommandDataClient, HttpCommandDataClient>();
-            builder.Services.AddDbContext<AppDbContext>(opt => opt.UseInMemoryDatabase("InMem"));
+            builder.Services.AddSingleton<IMessageBusClient, MessageBusClient>();
+            builder.Services.AddGrpc();
+
+            if (builder.Environment.IsProduction())
+            {
+                Console.WriteLine("--> Using SqlServer Db");
+                builder.Services.AddDbContext<AppDbContext>(opt =>
+                {
+                    opt.UseSqlServer(builder.Configuration.GetConnectionString("PlatformsConn"));
+                });
+            }
+            else
+            {
+                Console.WriteLine("--> Using InMem Db");
+                builder.Services.AddDbContext<AppDbContext>(opt => opt.UseInMemoryDatabase("InMem"));
+            }
             builder.Services.AddAutoMapper(typeof(PlatformProfile));
             var app = builder.Build();
 
@@ -31,13 +47,18 @@ namespace PlatformService
                 app.UseSwaggerUI();
             }
 
-            app.UseHttpsRedirection();
+            //app.UseHttpsRedirection();
 
             app.UseAuthorization();
 
             app.MapControllers();
+            app.MapGrpcService<GrpcPlatformService>();
+            app.MapGet("Protos/platforms.proto", async context =>
+            {
+                await context.Response.WriteAsync(File.ReadAllText("Protos/platforms.proto"));
+            });
 
-            PreparationDb.PrepPopulation(app);
+            PreparationDb.PrepPopulation(app, builder.Environment);
 
             app.Run();
         }

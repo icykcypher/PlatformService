@@ -29,3 +29,7 @@ spec:
           protocol: TCP
           port: 32275
           targetPort: 8080
+        - name: platformgrp
+          protocol: TCP
+          port: 666
+          targetPort: 666

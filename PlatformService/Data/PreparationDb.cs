@@ -1,18 +1,33 @@
-﻿namespace PlatformService.Data
+﻿using Microsoft.EntityFrameworkCore;
+
+namespace PlatformService.Data
 {
     public static class PreparationDb
     {
-        public static void PrepPopulation(IApplicationBuilder app)
+        public static void PrepPopulation(IApplicationBuilder app, IWebHostEnvironment env)
         {
             using (var scopedServ = app.ApplicationServices.CreateScope())
             {
                 SeedData(scopedServ.ServiceProvider.GetService<AppDbContext>() 
-                    ?? throw new Exception("PreparationDb.PrepPopulation NullReferenceException!"));
+                    ?? throw new Exception("PreparationDb.PrepPopulation NullReferenceException!"), env);
             }
         }
 
-        private static void SeedData(AppDbContext context)
+        private static void SeedData(AppDbContext context, IWebHostEnvironment env)
         {
+            if (env.IsProduction())
+            {
+                Console.WriteLine("--> Trying to apply migration...");
+                try
+                {
+                    context.Database.Migrate();
+
+                }
+                catch (Exception e)
+                {
+                    Console.WriteLine($"--> Could not run migration: {e.Message}");
+                }
+            }
             if (!context.Platforms.Any())
             {
                 Console.WriteLine("--> Seeding Data...");

@@ -3,6 +3,7 @@ using PlatformService.Dtos;
 using PlatformService.Models;
 using Microsoft.AspNetCore.Mvc;
 using PlatformService.Repositories;
+using PlatformService.AsyncDataServices;
 using PlatformService.SyncDataServices.Http;
 
 namespace PlatformService.Controllers
@@ -10,10 +11,11 @@ namespace PlatformService.Controllers
     [Route("api/[controller]/")]
     [ApiController]
     public class PlatformsController(IPlatformRepository platformRepository, 
-        IMapper mapper, ICommandDataClient dataClient) : ControllerBase
+        IMapper mapper, ICommandDataClient dataClient, IMessageBusClient messageBusClient) : ControllerBase
     {
         private readonly IMapper _mapper = mapper;
         private readonly ICommandDataClient _dataClient = dataClient;
+        private readonly IMessageBusClient _messageBusClient = messageBusClient;
         private readonly IPlatformRepository _platformRepository = platformRepository;
 
         [HttpGet]
@@ -60,6 +62,7 @@ namespace PlatformService.Controllers
 
                 var res = _mapper.Map<PlatformReadDto>(platform);
 
+                // Send Sync Message
                 try
                 {
                     await _dataClient.SendPlatformToCommand(res);
@@ -67,6 +70,19 @@ namespace PlatformService.Controllers
                 catch (Exception e)
                 {
                     Console.WriteLine($"--> Could not send synchronously: {e.Message}");
+                }
+
+                // Send Sync Message
+                try
+                {
+                    var published = _mapper.Map<PlatformPublishedDto>(res);
+                    published.Event = "Platform_Published";
+                    _messageBusClient.PublishNewPlatform(published);
+                }
+                catch (Exception e)
+                {
+                    Console.WriteLine($"--> Could not send asynchronously :{e.Message}");
+                    throw;
                 }
 
                 return CreatedAtRoute(nameof(GetPlatformById), new { Id = res.Id }, res);
